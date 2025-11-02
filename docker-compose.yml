@@ -1,0 +1,10 @@
+  services:
+    db: 
+      image: postgres:17
+      environment:
+        POSTGRES_USER: taskmanager
+        POSTGRES_PASSWORD: taskmanagerpass
+        POSTGRES_DB: taskmanagerdb
+      ports:
+        - "5432:5432"
+      
