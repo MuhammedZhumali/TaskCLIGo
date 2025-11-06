@@ -2,13 +2,15 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 
-	"task-manager/model"
+	"task-manager/controller"
+	"task-manager/repo"
+	"task-manager/service"
 )
 
 func main() {
@@ -27,40 +29,26 @@ func main() {
 		log.Fatal("Failed to ping database:", err)
 	}
 
-	t := model.Task{
-		Name:     "first task",
-		Owner:    "opir",
-		Priority: 1,
-	}
+	// Initialize layers
+	taskRepo := repo.NewTaskRepository(db)
+	taskService := service.NewTaskService(taskRepo)
+	taskController := controller.NewTaskController(taskService)
 
-	query := `
-		INSERT INTO tasks (name, owner, priority)
-		VALUES ($1, $2, $3)
-		RETURNING id
-	`
-	if err := db.QueryRow(query, t.Name, t.Owner, t.Priority).Scan(&t.ID); err != nil {
-		log.Fatal("Failed to insert task:", err)
-	}
+	// Setup router
+	router := gin.Default()
 
-	fmt.Println("Task inserted successfully, id:", t.ID)
+	// Routes
+	router.POST("/tasks", taskController.CreateTask)
+	router.GET("/tasks", taskController.GetAllTasks)
+	router.GET("/tasks/:id", taskController.GetTask)
+	router.PUT("/tasks/:id", taskController.UpdateTask)
+	router.DELETE("/tasks/:id", taskController.DeleteTask)
 
-	getAll := `SELECT id, name, owner, priority FROM tasks`
-
-	rows, err := db.Query(getAll)
-	if err != nil {
-		log.Fatal("Failed to query tasks:", err)
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var tt model.Task
-		if err := rows.Scan(&tt.ID, &tt.Name, &tt.Owner, &tt.Priority); err != nil {
-			log.Fatal("Failed to scan task:", err)
-		}
-		fmt.Printf("%+v\n", tt)
-	}
-	if err := rows.Err(); err != nil {
-		log.Fatal("Error iterating rows:", err)
-	}
+	log.Printf("Server starting on port %s", port)
+	router.Run(":" + port)
 }
-
